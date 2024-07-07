@@ -22,13 +22,40 @@ func main() {
 
 	switch {
 	case *pFlag:
+		file, err := openFile()
+		if err != nil {
+			fmt.Println("deepwork: failed to open file, you may need to create it by running `deepwork`")
+			os.Exit(1)
+		}
+		defer func() {
+			if err := file.Close(); err != nil {
+				fmt.Println("deepwork: failed closing file, " + err.Error())
+			}
+		}()
+
+		b, err := io.ReadAll(file)
+		if err != nil {
+			fmt.Println("deepwork: failed reading file, " + err.Error())
+			os.Exit(1)
+		}
+
+		var i Interval
+		if err = DecodeInterval(&i, b); err != nil {
+			fmt.Println("deepwork: failed decoding file to Interval " + err.Error())
+			os.Exit(1)
+		}
+		i.Print()
 	default:
-		startTimer(ctx)
+		if err := startTimer(ctx); err != nil {
+			fmt.Println("deepwork: " + err.Error())
+		}
 	}
 }
 
 func startTimer(ctx context.Context) error {
-	createInitialFile()
+	if err := createInitialFile(); err != nil {
+		return fmt.Errorf("start timer: creating file, %w", err)
+	}
 	fmt.Println("deepwork: timer starting, good luck!")
 	start := time.Now()
 
@@ -50,21 +77,23 @@ func startTimer(ctx context.Context) error {
 			return fmt.Errorf("start timer: reading file, %w", err)
 		}
 
-		var i *Interval
-		i, err = DecodeInterval(b)
-		if err != nil {
+		var i Interval
+		if err = DecodeInterval(&i, b); err != nil {
 			return fmt.Errorf("start timer: decoding interval, %w", err)
 		}
-
-		i = i.NewIfEmpty()
 		lastDay := i.LastDay()
 
 		var isCurrentDay bool
 		// Is it a new day?
 		tY, tM, tD := time.Now().Date()
-		t, m, d := lastDay.Date.Date()
-		if t == tY && m == tM && d == tD {
+		sY, sM, sD := start.Date()
+		y, m, d := lastDay.Date.Date()
+		if y == tY && m == tM && d == tD {
 			// It's not.
+			isCurrentDay = true
+		} else if y == sY && m == sM && d == sD {
+			// It is, but we started the timer on the day before.
+			// Let's count it as such.
 			isCurrentDay = true
 		} else {
 			// It is.
@@ -84,12 +113,11 @@ func startTimer(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("start timer: encoding interval, %w", err)
 		}
-
-		if err = file.Truncate(0); err != nil {
-			return fmt.Errorf("start timer: truncating file, %w", err)
-		}
-		_, err = file.Write(encB)
+		path, err := filePath()
 		if err != nil {
+			return fmt.Errorf("start timer: getting path, %w", err)
+		}
+		if err := os.WriteFile(path, encB, os.ModePerm); err != nil {
 			return fmt.Errorf("start timer: writing file, %w", err)
 		}
 
