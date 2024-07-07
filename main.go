@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -18,28 +16,25 @@ func main() {
 	defer stop()
 
 	var (
-		dFlag = flag.Bool("d", false, "Print the day overview")
-		wFlag = flag.Bool("w", false, "Print the week overview")
-		mFlag = flag.Bool("m", false, "Print the month overview")
+		pFlag = flag.Bool("p", false, "Print the day overview")
 	)
 	flag.Parse()
 
 	switch {
-	case *dFlag:
-	case *wFlag:
-	case *mFlag:
+	case *pFlag:
 	default:
 		startTimer(ctx)
 	}
 }
 
 func startTimer(ctx context.Context) error {
-	createInitialFile(true)
+	createInitialFile()
 	fmt.Println("deepwork: timer starting, good luck!")
 	start := time.Now()
 
 	select {
 	case <-ctx.Done():
+		var err error
 		file, err := openFile()
 		if err != nil {
 			return err
@@ -55,57 +50,49 @@ func startTimer(ctx context.Context) error {
 			return fmt.Errorf("start timer: reading file, %w", err)
 		}
 
-		var year *Year
-		if err := json.Unmarshal(b, year); err != nil {
-			return fmt.Errorf("start timer: unmarshaling, %w", err)
+		var i *Interval
+		i, err = DecodeInterval(b)
+		if err != nil {
+			return fmt.Errorf("start timer: decoding interval, %w", err)
 		}
 
-		var w *Week
-		if len(year.Months) >= 12 {
-			// TODO(kg): One full year has passed, decide what to do.
-			// For now only support one year of tracking.
-			oneYearPlaceHolder()
-		}
-		m := year.LastMonth()
-		if m == nil {
-			year.Months = append(year.Months, &Month{})
-			year.Months[0].Weeks = []*Week{}
-			year.Months[0].Weeks = append(year.Months[0].Weeks, w)
+		i = i.NewIfEmpty()
+		lastDay := i.LastDay()
+
+		var isCurrentDay bool
+		// Is it a new day?
+		tY, tM, tD := time.Now().Date()
+		t, m, d := lastDay.Date.Date()
+		if t == tY && m == tM && d == tD {
+			// It's not.
+			isCurrentDay = true
 		} else {
-			// Is it time for a new month?
-			if len(m.Weeks) >= 4 {
-			}
+			// It is.
+			lastDay = new(Day)
+			lastDay.Date = time.Now()
+			i.Days = append(i.Days, lastDay)
 		}
 
 		elapsed := time.Now().Sub(start)
-		rounded := elapsed.Round(elapsed)
-		switch time.Now().Weekday() {
-		case time.Monday:
-			if interval.W.Monday != 0 {
-				interval.W.Monday += rounded
-				break
-			}
-			w.Monday = rounded
-		case time.Tuesday:
-			w.Tuesday = rounded
-		case time.Wednesday:
-			w.Wednesday = rounded
-		case time.Thursday:
-			w.Thursday = rounded
-		case time.Friday:
-			w.Friday = rounded
-		case time.Saturday:
-			w.Staruday = rounded
-		case time.Sunday:
-			w.Sunday = rounded
-		default:
-			return errors.New("invalid weekday")
+
+		if isCurrentDay {
+			lastDay.Val += elapsed
+		} else {
+			lastDay.Val = elapsed
 		}
-		fmt.Println(elapsed.Round(elapsed))
+		encB, err := i.Encode()
+		if err != nil {
+			return fmt.Errorf("start timer: encoding interval, %w", err)
+		}
+
+		if err = file.Truncate(0); err != nil {
+			return fmt.Errorf("start timer: truncating file, %w", err)
+		}
+		_, err = file.Write(encB)
+		if err != nil {
+			return fmt.Errorf("start timer: writing file, %w", err)
+		}
+
 		return nil
 	}
-}
-
-func oneYearPlaceHolder() {
-	panic("not implemented")
 }
