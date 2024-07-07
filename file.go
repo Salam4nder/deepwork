@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	fileName           = "deepwork.json"
+	fileName           = "deepwork.txt"
 	whereErrorOccurred = "creating initial file: "
 )
 
@@ -35,12 +35,7 @@ func openFile() (*os.File, error) {
 	return f, nil
 }
 
-func createInitialFile(off bool) error {
-	if off {
-		fmt.Println("create file off, doing nothing")
-		return nil
-	}
-
+func createInitialFile() error {
 	path, err := filePath()
 	if err != nil {
 		return err
@@ -49,7 +44,7 @@ func createInitialFile(off bool) error {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stdout, "creating initial file in %s", filePath)
+			fmt.Printf("creating initial file in %s\n", path)
 			cF, err := os.Create(path)
 			if err != nil {
 				return fmt.Errorf("%s, %w", fmt.Sprint(whereErrorOccurred+"creating file"), err)
