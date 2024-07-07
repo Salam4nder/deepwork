@@ -16,7 +16,7 @@ func main() {
 	defer stop()
 
 	var (
-		pFlag = flag.Bool("p", false, "Print the day overview")
+		pFlag = flag.Bool("p", false, "Print the overview")
 	)
 	flag.Parse()
 
