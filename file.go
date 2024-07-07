@@ -44,16 +44,26 @@ func createInitialFile() error {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Printf("creating initial file in %s\n", path)
+			fmt.Printf("deepwork: creating initial file in %s\n", path)
 			cF, err := os.Create(path)
 			if err != nil {
-				return fmt.Errorf("%s, %w", fmt.Sprint(whereErrorOccurred+"creating file"), err)
+				return err
 			}
 			defer func() {
 				if err := cF.Close(); err != nil {
 					fmt.Fprintf(os.Stdout, "%s, %s", fmt.Sprint(whereErrorOccurred+"closing file"), err.Error())
 				}
 			}()
+			i := NewInterval()
+			encB, err := i.Encode()
+			if err != nil {
+				return err
+			}
+
+			_, err = cF.Write(encB)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}
