@@ -64,8 +64,9 @@ func createInitialFile() error {
 			if err != nil {
 				return err
 			}
+			return nil
 		}
-		return nil
+		return err
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
