@@ -2,31 +2,30 @@ package main
 
 import (
 	"bytes"
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"time"
 )
 
 type Day struct {
-	Date time.Time
-	Val  time.Duration
+	Date time.Time     `json:"date"`
+	Val  time.Duration `json:"val"`
 }
 
 type Interval struct {
-	Days []*Day
+	Days []*Day `json:"days"`
 }
 
-func DecodeInterval(b []byte) (*Interval, error) {
-	var i *Interval
-	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(i); err != nil {
-		return nil, err
+func DecodeInterval(i *Interval, b []byte) error {
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(i); err != nil {
+		return err
 	}
-	return i, nil
+	return nil
 }
 
 func (x *Interval) Encode() ([]byte, error) {
 	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(x); err != nil {
+	if err := json.NewEncoder(&buf).Encode(x); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -39,13 +38,10 @@ func (x *Interval) LastDay() *Day {
 	return x.Days[len(x.Days)-1]
 }
 
-func (x *Interval) NewIfEmpty() *Interval {
-	if x == nil || len(x.Days) == 0 {
-		x = new(Interval)
-		x.Days = append(x.Days, &Day{})
-		return x
-	}
-	return x
+func NewInterval() *Interval {
+	i := new(Interval)
+	i.Days = append(i.Days, &Day{Date: time.Now()})
+	return i
 }
 
 func (x *Interval) Print() {
@@ -57,8 +53,7 @@ func (x *Interval) Print() {
 			d.Date.Year(),
 			d.Date.Month(),
 			d.Date.Weekday(),
-			d.Val.Round(time.Hour),
-			" in hours",
+			d.Val.Round(time.Second),
 		)
 	}
 }
